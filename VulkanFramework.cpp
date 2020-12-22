@@ -1,7 +1,10 @@
 /*======================================================================
-Vulkan Presentation : VulkanFramework.cpp
+VulkanPBR_AcornForest : VulkanFramework.cpp
 Author:			Sim Luigi
-Last Modified:	2020.12.13
+Last Modified:	2020.12.18
+
+Current Benchmark: Vulkan ImGui Implementation
+現在の段階：Vulkan ImGui実装 (DirectXなどと比べると、簡単に設定できないのですが）
 
 << 気づいたこと・メモ >>　※間違っている場合、教えていただければ幸いです。
 
@@ -58,22 +61,18 @@ Last Modified:	2020.12.13
 =======================================================================*/
 #include "VulkanFramework.h"
 
+//#define STB_IMAGE_IMPLEMENTATION
+#include <stb_image.h>
+
 #define TINYOBJLOADER_IMPLEMENTATION        // tinyobjloaderモデル読み込み
 #include <tiny_obj_loader.h>
 
-#define GLM_ENABLE_EXPERIMENTAL             // glm型のHash
-#define GLM_FORCE_RADIANS                   // glm::rotate関数をラジアンで処理する設定
-#define GLM_FORCE_DEPTH_ZERO_TO_ONE	        // GLMのプロジェクションマトリックスのZソート値は -1.0～1.0（OpenGL対応のため）
-// Vulkan対応にするために 0.0～1.0 に設定する必要があります
-// GLM uses depth ranges of -1.0 to 1.0 in accordance with OpenGL standards.
-// To use GLM projection matrices in Vulkan for depth buffering, set values to 0.0～1.0
+#include "imgui.h"
+#include "imgui_impl_glfw.h"
+#include "imgui_impl_vulkan.h"
 
-#define STB_IMAGE_IMPLEMENTATION
-#include <stb_image.h>
-
-#include <chrono>       // 時間管理；フレームレートに関わらずジオメトリーが90°回転させます
-                        // time manager: will allow us to rotate geometry 90 degress regardless of frame rate
-
+#include <chrono>       // 時間管理；フレームレートに関わらずジオメトリーがX°回転させます
+                        // time manager: will allow us to rotate geometry X degress regardless of frame rate
 #include <iostream>     // 基本I/O
 #include <vector>       // std::vector
 #include <set>          // std::set
@@ -258,6 +257,7 @@ std::vector<const char*> CVulkanFramework::getRequiredExtensions()
 
 //====================================================================================
 // To be migrated later
+// 後で整理する予定
 //====================================================================================
 
 void CVulkanFramework::run()
@@ -271,6 +271,7 @@ void CVulkanFramework::run()
 // メインループ
 void CVulkanFramework::mainLoop()
 {
+
 	while (glfwWindowShouldClose(m_Window) == false)
 	{
 		glfwPollEvents();    // イベント待機  Update/event checker
@@ -281,8 +282,6 @@ void CVulkanFramework::mainLoop()
 	// let logical device finish operations before exiting the main loop 
 	vkDeviceWaitIdle(m_LogicalDevice);
 }
-
-
 
 
 //====================================================================================
@@ -331,6 +330,10 @@ void CVulkanFramework::initVulkan()
 	createDescriptorSets();         // デスクリプターセットを生成
 	createCommandBuffers();         // コマンドバッファー生成
 	createSyncObjects();            // 処理同期オブジェクト生成
+
+	initImGui();
+	createImGuiFrame();
+	
 }
 
 // Vulkanインスタンス生成 Create Vulkan Instance
@@ -485,18 +488,26 @@ void CVulkanFramework::createSwapChain()
 	// why +1?
 	// sometimes we may have to wait on the driver to perform internal operations before we can acquire
 	// another image to render to. Therefore it is recommended to request at least one more image than the minimum.
-	uint32_t imageCount = swapChainSupport.capabilities.minImageCount + 1;
+	//uint32_t imageCount = swapChainSupport.capabilities.minImageCount + 1;
+	//if (swapChainSupport.capabilities.maxImageCount > 0                 // zero here means there is no maximum!
+	//	&& imageCount > swapChainSupport.capabilities.maxImageCount)
+	//{
+	//	imageCount = swapChainSupport.capabilities.maxImageCount;
+	//}
+
+	m_MinImageCount = swapChainSupport.capabilities.minImageCount;
+	m_ImageCount = m_MinImageCount + 1;
 	if (swapChainSupport.capabilities.maxImageCount > 0                 // zero here means there is no maximum!
-		&& imageCount > swapChainSupport.capabilities.maxImageCount)
+		&& m_ImageCount > swapChainSupport.capabilities.maxImageCount)
 	{
-		imageCount = swapChainSupport.capabilities.maxImageCount;
+		m_ImageCount = swapChainSupport.capabilities.maxImageCount;
 	}
 
 	VkSwapchainCreateInfoKHR createInfo{};    // SwapChain生成情報構造体
 	createInfo.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
 	createInfo.surface = m_Surface;
 
-	createInfo.minImageCount = imageCount;
+	createInfo.minImageCount = m_ImageCount;
 	createInfo.imageFormat = surfaceFormat.format;
 	createInfo.imageColorSpace = surfaceFormat.colorSpace;
 	createInfo.imageExtent = extent;
@@ -531,9 +542,12 @@ void CVulkanFramework::createSwapChain()
 		throw std::runtime_error("Failed to create swap chain!");
 	}
 
-	vkGetSwapchainImagesKHR(m_LogicalDevice, m_SwapChain, &imageCount, nullptr);                    // SwapChainのイメージ数を獲得
-	m_SwapChainImages.resize(imageCount);
-	vkGetSwapchainImagesKHR(m_LogicalDevice, m_SwapChain, &imageCount, m_SwapChainImages.data());   // 情報をm_SwapChainImagesに代入
+	//vkGetSwapchainImagesKHR(m_LogicalDevice, m_SwapChain, &imageCount, nullptr);                    // SwapChainのイメージ数を獲得
+	//m_SwapChainImages.resize(imageCount);
+	//vkGetSwapchainImagesKHR(m_LogicalDevice, m_SwapChain, &imageCount, m_SwapChainImages.data());   // 情報をm_SwapChainImagesに代入
+	vkGetSwapchainImagesKHR(m_LogicalDevice, m_SwapChain, &m_ImageCount, nullptr);                    // SwapChainのイメージ数を獲得
+	m_SwapChainImages.resize(m_ImageCount);
+	vkGetSwapchainImagesKHR(m_LogicalDevice, m_SwapChain, &m_ImageCount, m_SwapChainImages.data());   // 情報をm_SwapChainImagesに代入
 
 	m_SwapChainImageFormat = surfaceFormat.format;
 	m_SwapChainExtent = extent;
@@ -552,32 +566,17 @@ void CVulkanFramework::createImageViews()
 // レンダーパス生成
 void CVulkanFramework::createRenderPass()
 {
-	VkAttachmentDescription colorAttachment{};           // カラーアタッチメント
+	VkAttachmentDescription colorAttachment{};          // カラーアタッチメント
 	colorAttachment.format = m_SwapChainImageFormat;    // SwapChainフォーマットと同じ　format of color attachment = format of swap chain images
-	colorAttachment.samples = m_MSAASamples;             // マルチサンプリングビット数
+	colorAttachment.samples = m_MSAASamples;            // マルチサンプリングビット数
 
-	colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;    // レンダリング前の情報はどうするフラッグ　
-															  // what to do with data before rendering
+	colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+	colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+	colorAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;    
+	colorAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
 
-	// VK_ATTACHMENT_LOAD_OP_LOAD       : 既存の情報を保存　Preserve existing contents of attachment
-	// VK_ATTACHMENT_LOAD_OP_CLEAR      : クリアする（現在：黒）Clear the values to a constant at the start (in this case, clear to black)
-	// VK_ATTACHMENT_LOAD_OP_DONT_CARE  : 情報を無視　Existing contents are undefined; we don't care about them
-
-	colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;	// レンダリング後の情報はどうするフラッグ what to do with data after rendering
-
-	// VK_ATTACHMENT_STORE_OP_STORE     : 情報を保存　Rendered contents will be stored in memory and can be read later
-	// VK_ATTACHMENT_STORE_OP_DONT_CARE : 情報を無視　Contents of the framebuffer will be undefined ater the rendering operation
-
-	colorAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;     // ステンシルバッファーを使っていない
-	colorAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;    // not using stencil buffer
-
-	colorAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;                 // レンダリング前のイメージレイアウト image layout before render pass
-	colorAttachment.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;    // レンダリング前のイメージレイアウト layout to automatically transition to after pass
-
-	// 一般のレイアウト種 Common Layouts:
-	// VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL : カラーアタッチメントとして使う    Images used as color attachment
-	// VK_IMAGE_LAYOUT_PRESENT_SRC_KHR          : SwapChainで描画します              Images to be presented in the swap chain
-	// VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL     : メモリーコピー演算として使う      Images to be used as destination for a memory copy operation
+	colorAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED; 
+	colorAttachment.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL; 
 
 	// アタッチメントレフレックスインデックス
 	VkAttachmentReference colorAttachmentReference{};
@@ -596,7 +595,8 @@ void CVulkanFramework::createRenderPass()
 	colorAttachmentResolve.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
 	colorAttachmentResolve.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
 	colorAttachmentResolve.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-	colorAttachmentResolve.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;    // リソールブ後、プレゼントすることができます
+	// colorAttachmentResolve.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;                 // ImGuiなしの場合、ここでプレゼント
+	colorAttachmentResolve.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;     // ImGuiレンダーパスに渡します
 
 	VkAttachmentReference colorAttachmentResolveReference{};
 	colorAttachmentResolveReference.attachment = 2;
@@ -638,6 +638,7 @@ void CVulkanFramework::createRenderPass()
 	// レンダーパス情報構造体生成
 	// attachments：createCommandBuffers()のclearValues順番と同じにすること
 	std::array<VkAttachmentDescription, 3> attachments = { colorAttachment, depthAttachment, colorAttachmentResolve };
+
 	VkRenderPassCreateInfo renderPassInfo{};
 	renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
 	renderPassInfo.attachmentCount = static_cast<uint32_t>(attachments.size());
@@ -667,7 +668,7 @@ void CVulkanFramework::createDescriptorSetLayout()
 	// 合成イメージサンプラー用 Combined Image Sampler
 	VkDescriptorSetLayoutBinding samplerLayoutBinding{};
 	samplerLayoutBinding.binding = 1;
-	samplerLayoutBinding.descriptorCount = 1;
+	samplerLayoutBinding.descriptorCount = 1; 
 	samplerLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
 	samplerLayoutBinding.pImmutableSamplers = nullptr;
 	samplerLayoutBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;    // VERTEX_BIT: Heightmap, etc
@@ -1034,7 +1035,7 @@ void CVulkanFramework::createCommandPool()
 	poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
 	poolInfo.queueFamilyIndex = queueFamilyIndices.graphicsFamily.value();    // 描画するためグラフィックスキューを選択します
 																			  // drawing commands: graphics queue family chosen
-	poolInfo.flags = 0;    // optional 任意
+	poolInfo.flags = 0;    // 任意 optional
 
 	// 上記の構造体の情報に基づいて実際のコマンドプールを生成します。
 	if (vkCreateCommandPool(m_LogicalDevice, &poolInfo, nullptr, &m_CommandPool) != VK_SUCCESS)
@@ -1332,18 +1333,26 @@ void CVulkanFramework::createUniformBuffers()
 // デスクリプターセットを格納するでスクリプタープールを生成
 void CVulkanFramework::createDescriptorPool()
 {
-	std::array<VkDescriptorPoolSize, 2> poolSizes{};    // 各フレームに1つのデスクリプターを用意します
-	poolSizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+	std::array<VkDescriptorPoolSize, 3> poolSizes{};    // 各フレームに1つのデスクリプターを用意します
+	poolSizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;                              // [0] UBO トランスフォームなど
 	poolSizes[0].descriptorCount = static_cast<uint32_t>(m_SwapChainImages.size());
-	poolSizes[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-	poolSizes[1].descriptorCount = static_cast<uint32_t>(m_SwapChainImages.size());
+	poolSizes[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;                      // [1] 描画用
+	poolSizes[1].descriptorCount = static_cast<uint32_t>(m_SwapChainImages.size()) * 2;
+	poolSizes[2].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;                      // [2] ImGui用
+	poolSizes[2].descriptorCount = static_cast<uint32_t>(m_SwapChainImages.size());
+
+	//std::array<VkDescriptorPoolSize, 2> poolSizes{};    // 各フレームに1つのデスクリプターを用意します
+	//poolSizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;                              // [0] UBO トランスフォームなど
+	//poolSizes[0].descriptorCount = static_cast<uint32_t>(m_SwapChainImages.size());
+	//poolSizes[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;                      // [1] 描画用
+	//poolSizes[1].descriptorCount = static_cast<uint32_t>(m_SwapChainImages.size());
 
 
 	VkDescriptorPoolCreateInfo poolInfo{};    // デスクリプタープール生成情報構造体
 	poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
 	poolInfo.poolSizeCount = static_cast<uint32_t>(poolSizes.size());
 	poolInfo.pPoolSizes = poolSizes.data();
-	poolInfo.maxSets = static_cast<uint32_t>(m_SwapChainImages.size());
+	poolInfo.maxSets = static_cast<uint32_t>(m_SwapChainImages.size()) + 1;    // +1 if w / Imgui
 
 	if (vkCreateDescriptorPool(m_LogicalDevice, &poolInfo, nullptr, &m_DescriptorPool) != VK_SUCCESS)
 	{
@@ -1539,6 +1548,259 @@ void CVulkanFramework::createSyncObjects()
 }
 
 
+// ==================
+// ImGui実装未完成
+
+// ImGui初期化
+void CVulkanFramework::initImGui()
+{
+	QueueFamilyIndices indices = findQueueFamilies(m_PhysicalDevice);
+
+	IMGUI_CHECKVERSION();
+	ImGui::CreateContext();
+	ImGuiIO& io = ImGui::GetIO(); (void)io;
+
+	// ImGuiスタイル設定
+	ImGui::StyleColorsDark();
+
+	// ImGuiウインドウリサイズ
+	//io.DisplaySize = ImVec2(m_SwapChainExtent.width, m_SwapChainExtent.height);
+	//io.DisplayFramebufferScale = ImVec2(1.0f, 1.0f);
+
+	// プラットフォーム・レンダラー専用初期化
+	// Platform (GLFW), Renderer(Vulkan) specific initializations
+	ImGui_ImplGlfw_InitForVulkan(m_Window, true);
+
+	// ImGui専用レンダーパスを生成
+	CVulkanFramework::createImGuiRenderPass();
+	
+	ImGui_ImplVulkan_InitInfo initInfo{};    // ImGui初期化情報構造体
+	
+	initInfo.Instance = m_Instance;
+	initInfo.PhysicalDevice = m_PhysicalDevice;
+	initInfo.Device = m_LogicalDevice;
+	initInfo.QueueFamily = indices.graphicsFamily.value();
+	initInfo.Queue = m_GraphicsQueue;
+	initInfo.PipelineCache = VK_NULL_HANDLE;
+	initInfo.DescriptorPool = m_DescriptorPool;
+	initInfo.Allocator = NULL;
+	initInfo.MinImageCount = 2;
+	initInfo.ImageCount = static_cast<uint32_t>(m_SwapChainImages.size());
+	initInfo.CheckVkResultFn = NULL;
+	ImGui_ImplVulkan_Init(&initInfo, m_ImGuiRenderPass);
+
+	// フォンとテクスチャー生成
+	// Create Fonts Texture
+	VkCommandBuffer commandBuffer = beginSingleTimeCommands();
+	ImGui_ImplVulkan_CreateFontsTexture(commandBuffer);
+	endSingleTimeCommands(commandBuffer);
+	ImGui_ImplVulkan_DestroyFontUploadObjects();
+
+	// 専用でスクリプタープール生成
+	//createImGuiDescriptorPool();
+
+
+}
+
+// ImGui専用レンダーパス
+void CVulkanFramework::createImGuiRenderPass()
+{
+	VkAttachmentDescription attachmentImGui{};
+	attachmentImGui.format = m_SwapChainImageFormat;
+	attachmentImGui.samples = VK_SAMPLE_COUNT_1_BIT;
+	attachmentImGui.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
+	attachmentImGui.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+	attachmentImGui.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+	attachmentImGui.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+	attachmentImGui.initialLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+	attachmentImGui.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;    // 最後のレンダーパスでPRESENT_SRC_KHR
+
+	VkAttachmentReference colorAttachmentReferenceImGui{};
+	colorAttachmentReferenceImGui.attachment = 0;
+	colorAttachmentReferenceImGui.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;    // optimal performance
+
+	VkSubpassDescription subpassImGui{};
+	subpassImGui.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+	subpassImGui.colorAttachmentCount = 1;
+	subpassImGui.pColorAttachments = &colorAttachmentReferenceImGui;
+
+	VkSubpassDependency dependencyImGui{};
+	dependencyImGui.srcSubpass = VK_SUBPASS_EXTERNAL;
+	dependencyImGui.dstSubpass = 0;
+	// source stage mask: wait for this output (pixels to already be in the framebuffer) before proceeding to next stage
+	dependencyImGui.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;    
+	dependencyImGui.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+	dependencyImGui.srcAccessMask = 0;
+	dependencyImGui.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+
+	VkRenderPassCreateInfo renderPassInfoImGui{};
+	renderPassInfoImGui.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
+	renderPassInfoImGui.attachmentCount = 1;
+	renderPassInfoImGui.pAttachments = &attachmentImGui;
+	renderPassInfoImGui.subpassCount = 1;
+	renderPassInfoImGui.pSubpasses = &subpassImGui;
+	renderPassInfoImGui.dependencyCount = 1;
+	renderPassInfoImGui.pDependencies = &dependencyImGui;
+
+	if (vkCreateRenderPass(m_LogicalDevice, &renderPassInfoImGui, nullptr, &m_ImGuiRenderPass) != VK_SUCCESS)
+	{
+		throw std::runtime_error("Failed to create ImGui Render Pass!");
+	}
+}
+
+void CVulkanFramework::createImGuiDescriptorPool()
+{
+	// Create Descriptor Pool
+	{
+		VkDescriptorPoolSize pool_sizes[] =
+		{
+			{ VK_DESCRIPTOR_TYPE_SAMPLER, 1000 },
+			{ VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1000 },
+			{ VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1000 },
+			{ VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1000 },
+			{ VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER, 1000 },
+			{ VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER, 1000 },
+			{ VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1000 },
+			{ VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1000 },
+			{ VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 1000 },
+			{ VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC, 1000 },
+			{ VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, 1000 }
+		};
+		VkDescriptorPoolCreateInfo pool_info = {};
+		pool_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+		pool_info.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
+		pool_info.maxSets = 1000 * IM_ARRAYSIZE(pool_sizes);
+		pool_info.poolSizeCount = (uint32_t)IM_ARRAYSIZE(pool_sizes);
+		pool_info.pPoolSizes = pool_sizes;
+		if (vkCreateDescriptorPool(m_LogicalDevice, &pool_info, nullptr, &m_ImGuiDescriptorPool) != VK_SUCCESS)
+		{
+			throw std::runtime_error("Failed to create ImGui Descriptor Pool!");
+		}
+	}
+}
+
+
+// ImGui初期化
+void CVulkanFramework::setupImGuiWindow()
+{
+	ImGuiIO& io = ImGui::GetIO();
+	ImGui_ImplVulkan_NewFrame();
+	ImGui_ImplGlfw_NewFrame();
+	ImGui::NewFrame();
+	ImGui::Begin("Test");
+
+	ImGui::End();
+
+	// ImGui::ShowDemoWindow();
+	ImGui::Render();
+
+}
+
+// ImGuiフレームレンダー（途中）
+void CVulkanFramework::createImGuiFrame()
+{
+	// createCommandPool Temp: convert to function later
+	QueueFamilyIndices queueFamilyIndices = findQueueFamilies(m_PhysicalDevice);
+
+	VkCommandPoolCreateInfo poolInfo{};    // コマンドプール情報構造体
+	poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+	poolInfo.queueFamilyIndex = queueFamilyIndices.graphicsFamily.value();    // 描画するためグラフィックスキューを選択します
+																			  // drawing commands: graphics queue family chosen
+	poolInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
+
+	// 上記の構造体の情報に基づいて実際のコマンドプールを生成します。
+	if (vkCreateCommandPool(m_LogicalDevice, &poolInfo, nullptr, &m_ImGuiCommandPool) != VK_SUCCESS)
+	{
+		throw std::runtime_error("Failed to create graphics command pool!");
+	}
+
+	//resize
+	m_ImGuiCommandBuffers.resize(m_SwapChainImageViews.size());
+	m_ImGuiFramebuffers.resize(m_SwapChainImageViews.size());
+
+	// create command buffer Temp
+	// VkCommandBuffer* commandBuffer, uint32_t commandBufferCount, VkCommandPool &commandPool) {
+	VkCommandBufferAllocateInfo allocInfoImGui{};
+	allocInfoImGui.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+	allocInfoImGui.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+	allocInfoImGui.commandPool = m_ImGuiCommandPool;
+	allocInfoImGui.commandBufferCount = static_cast<uint32_t>(m_ImGuiCommandBuffers.size());
+	
+	if (vkAllocateCommandBuffers(m_LogicalDevice, &allocInfoImGui, m_ImGuiCommandBuffers.data()) != VK_SUCCESS)
+	{
+		throw std::runtime_error("Failed to allocate ImGui command buffers!");
+	}
+
+	// ImGui start
+	ImGuiIO& io = ImGui::GetIO();
+	ImGui_ImplVulkan_NewFrame();
+	ImGui_ImplGlfw_NewFrame();
+	ImGui::NewFrame();
+	//ImGui::Begin("Test");
+	//ImGui::End();
+
+	ImGui::ShowDemoWindow();
+	ImGui::Render();
+
+	for (size_t i = 0; i < m_ImGuiCommandBuffers.size(); i++)
+	{
+		// ImGuiフレームバッファー
+		VkImageView attachment = m_SwapChainImageViews[i];
+		VkFramebufferCreateInfo framebufferCreateInfoImGui{};
+		framebufferCreateInfoImGui.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
+		framebufferCreateInfoImGui.renderPass = m_ImGuiRenderPass;
+		framebufferCreateInfoImGui.attachmentCount = 1;
+		framebufferCreateInfoImGui.pAttachments = &attachment;
+		framebufferCreateInfoImGui.width = m_SwapChainExtent.width;
+		framebufferCreateInfoImGui.height = m_SwapChainExtent.height;
+		framebufferCreateInfoImGui.layers = 1;
+
+		// reset command pool and record commands into a command buffer for ImGui
+		VkCommandBufferBeginInfo commandBufferBeginInfoImGui{};
+		commandBufferBeginInfoImGui.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+		commandBufferBeginInfoImGui.flags |= VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+
+		if (vkBeginCommandBuffer(m_ImGuiCommandBuffers[i], &commandBufferBeginInfoImGui) != VK_SUCCESS)
+		{
+			throw std::runtime_error("Failed to begin recording ImGui command buffer!");
+		}
+
+		// 各フレーム、ImGuiフレームバッファーを生成
+		if (vkCreateFramebuffer(m_LogicalDevice, &framebufferCreateInfoImGui, nullptr, &m_ImGuiFramebuffers[i]) != VK_SUCCESS)
+		{
+			throw std::runtime_error("Failed to create ImGui framebuffer!");
+		}
+
+		// レンダーパス開始
+		// Starting a render pass
+		VkRenderPassBeginInfo renderPassInfo{};		// レンダーパス情報構造体
+		renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+		renderPassInfo.renderPass = m_ImGuiRenderPass;
+		renderPassInfo.framebuffer = m_ImGuiFramebuffers[i]; 
+		renderPassInfo.renderArea.extent = m_SwapChainExtent;
+
+		// クリアカラー
+		VkClearValue clearValue{};
+		clearValue.color = { 0.0f, 0.0f, 0.0f, 1.0f };    // 黒
+		renderPassInfo.clearValueCount = 1;
+		renderPassInfo.pClearValues = &clearValue;
+
+		// 実際のレンダーパスを開始します
+		vkCmdBeginRenderPass(m_ImGuiCommandBuffers[i], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
+
+		// ImGuiレンダー
+		ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), m_ImGuiCommandBuffers[i]);
+
+		// レンダーパスを終了します
+		vkCmdEndRenderPass(m_ImGuiCommandBuffers[i]);
+
+		VkResult result = vkEndCommandBuffer(m_ImGuiCommandBuffers[i]);
+		if (result != VK_SUCCESS)
+		{
+			throw std::runtime_error("Failed to record command buffer!");
+		}
+	}
+}
 
 //====================================================================================
 // 15X : 汎用オブジェクト生成・ヘルパー関数
@@ -1978,7 +2240,7 @@ void CVulkanFramework::generateMipmaps(VkImage image, VkFormat imageFormat, int3
 void CVulkanFramework::framebufferResizeCallback(GLFWwindow* window, int width, int height)
 {
 	CVulkanFramework* app = reinterpret_cast<CVulkanFramework*>(glfwGetWindowUserPointer(window));
-	app->CVulkanFramework::m_FramebufferResized = true;
+	app->CVulkanFramework::m_FramebufferResized = true;	
 }
 
 // SwapChainがウィンドウサーフェスに対応していない場合（ウインドウリサイズ）、SwapChainを再生成
@@ -2011,6 +2273,9 @@ void CVulkanFramework::recreateSwapChain()
 	createDescriptorPool();     // SwapChain内の画像に依存
 	createDescriptorSets();     // SwapChain内の画像に依存
 	createCommandBuffers();     // SwapChain内の画像に依存
+	createImGuiFrame();         // プレゼントに依存
+	
+	//ImGui_ImplVulkan_SetMinImageCount(m_MinImageCount);    // 更新後のm_MinImageCountをImGuiに渡す
 }
 
 // ユニフォームバッファー更新（UBO）：マトリックストランスフォーム、カメラ設定
@@ -2021,11 +2286,11 @@ void CVulkanFramework::updateUniformBuffer(uint32_t currentImage)
 	auto currentTime = std::chrono::high_resolution_clock::now();
 	float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
 
-	UniformBufferObject ubo{};  // MVPトランスフォーム情報構造体
+	UniformBufferObject ubo{};  // MVP (モデル・ビュー・プロジェクション)トランスフォーム情報構造体
 
 	//// M(Model: 毎フレーム、Z軸にX°回転させる
 	// ubo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
-	ubo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+	ubo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(30.0f), glm::vec3(0.0f, 0.0f, 1.0f));
 	//
 	// V(View): 引数　eye位置, center位置, up軸
 	ubo.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
@@ -2052,13 +2317,16 @@ void CVulkanFramework::updateUniformBuffer(uint32_t currentImage)
 // フレームを描画
 void CVulkanFramework::drawFrame()
 {
+	// Draw + ImGui command buffer
+	std::array<VkCommandBuffer, 2> submitCommandBuffers = { m_CommandBuffers[m_CurrentFrame], m_ImGuiCommandBuffers[m_CurrentFrame] };
+
 	// フェンス処理を待ちます
 	vkWaitForFences(m_LogicalDevice, 1, &m_InFlightFences[m_CurrentFrame], VK_TRUE, UINT64_MAX);
 
 	uint32_t imageIndex;
 	VkResult result = vkAcquireNextImageKHR(m_LogicalDevice, m_SwapChain, UINT64_MAX, m_ImageAvailableSemaphores[m_CurrentFrame], VK_NULL_HANDLE, &imageIndex);
 
-	// SwapChainがすたれた場合  （すたれた）
+	// SwapChainが棄てられた場合  （すたれた）
 	// check if swap chain is out of date
 	if (result == VK_ERROR_OUT_OF_DATE_KHR)
 	{
@@ -2093,8 +2361,8 @@ void CVulkanFramework::drawFrame()
 	submitInfo.pWaitSemaphores = waitSemaphores;    // 実行前に待つセマフォ　semaphore to wait on before execution
 	submitInfo.pWaitDstStageMask = waitStages;      // 待たせるパイプラインステージ　stage(s) of the pipeline to wait
 
-	submitInfo.commandBufferCount = 1;
-	submitInfo.pCommandBuffers = &m_CommandBuffers[imageIndex];
+	submitInfo.commandBufferCount = static_cast<uint32_t>(submitCommandBuffers.size());
+	submitInfo.pCommandBuffers = submitCommandBuffers.data();
 
 	VkSemaphore signalSemaphores[] = { m_RenderFinishedSemaphores[m_CurrentFrame] };
 	submitInfo.signalSemaphoreCount = 1;
@@ -2384,6 +2652,17 @@ bool CVulkanFramework::hasStencilComponent(VkFormat format)
 // before recreating swap chain, call this to clean up older versions of it
 void CVulkanFramework::cleanupSwapChain()
 {
+	//// ImGui cleanup
+	//for (VkFramebuffer framebuffer : m_ImGuiFramebuffers)
+	//{
+	//	vkDestroyFramebuffer(m_LogicalDevice, framebuffer, nullptr);
+	//}
+	//vkDestroyRenderPass(m_LogicalDevice, m_ImGuiRenderPass, nullptr);
+	//vkFreeCommandBuffers(m_LogicalDevice, m_ImGuiCommandPool,
+	//	static_cast<uint32_t>(m_ImGuiCommandBuffers.size()), m_ImGuiCommandBuffers.data());
+	//vkDestroyCommandPool(m_LogicalDevice, m_ImGuiCommandPool, nullptr);
+
+	// main program cleanup
 	vkDestroyImageView(m_LogicalDevice, m_ColorImageView, nullptr);
 	vkDestroyImage(m_LogicalDevice, m_ColorImage, nullptr);
 	vkFreeMemory(m_LogicalDevice, m_ColorImageMemory, nullptr);
@@ -2428,6 +2707,11 @@ void CVulkanFramework::cleanup()
 {
 	cleanupSwapChain();
 	
+	//ImGui_ImplVulkan_Shutdown();
+	//ImGui_ImplGlfw_Shutdown();
+	//ImGui::DestroyContext();
+	//vkDestroyDescriptorPool(m_LogicalDevice, m_ImGuiDescriptorPool, nullptr);
+
 	vkDestroySampler(m_LogicalDevice, m_TextureSampler, nullptr);
 	vkDestroyImageView(m_LogicalDevice, m_TextureImageView, nullptr);
 

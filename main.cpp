@@ -15,6 +15,7 @@ int main(void)
 	try
 	{
 		mainProgram.run();
+
 	}
 	catch (const std::exception& e)
 	{

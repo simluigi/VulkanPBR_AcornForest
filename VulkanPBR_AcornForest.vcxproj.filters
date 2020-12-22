@@ -4,22 +4,91 @@
     <Filter Include="00 Framework">
       <UniqueIdentifier>{c62c09f3-2646-4c5a-b249-a7e71041a266}</UniqueIdentifier>
     </Filter>
-    <Filter Include="01 Main Program">
+    <Filter Include="01 External Files">
+      <UniqueIdentifier>{1a01a3bd-5dc5-48a7-a251-25dca33c91c0}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="01 External Files\TinyGLTF">
+      <UniqueIdentifier>{708c6008-40a9-4308-ae44-46f387a5c7d9}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="03 Main Program">
       <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
       <Extensions>cpp;c;cc;cxx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
+    <Filter Include="01 External Files\ImGui">
+      <UniqueIdentifier>{367c68c6-011e-4285-b026-65163c86e4fc}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="02 Resource Implementation">
+      <UniqueIdentifier>{a2eab9dc-29cc-4d45-8c5c-0682b7ca014c}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp">
-      <Filter>01 Main Program</Filter>
+      <Filter>03 Main Program</Filter>
     </ClCompile>
     <ClCompile Include="VulkanFramework.cpp">
       <Filter>00 Framework</Filter>
+    </ClCompile>
+    <ClCompile Include="modelLoader.cpp">
+      <Filter>02 Resource Implementation</Filter>
+    </ClCompile>
+    <ClCompile Include="External\imgui\imgui.cpp">
+      <Filter>01 External Files\ImGui</Filter>
+    </ClCompile>
+    <ClCompile Include="External\imgui\imgui_demo.cpp">
+      <Filter>01 External Files\ImGui</Filter>
+    </ClCompile>
+    <ClCompile Include="External\imgui\imgui_draw.cpp">
+      <Filter>01 External Files\ImGui</Filter>
+    </ClCompile>
+    <ClCompile Include="External\imgui\imgui_impl_glfw.cpp">
+      <Filter>01 External Files\ImGui</Filter>
+    </ClCompile>
+    <ClCompile Include="External\imgui\imgui_impl_vulkan.cpp">
+      <Filter>01 External Files\ImGui</Filter>
+    </ClCompile>
+    <ClCompile Include="External\imgui\imgui_widgets.cpp">
+      <Filter>01 External Files\ImGui</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="VulkanFramework.h">
       <Filter>00 Framework</Filter>
+    </ClInclude>
+    <ClInclude Include="modelLoader.h">
+      <Filter>02 Resource Implementation</Filter>
+    </ClInclude>
+    <ClInclude Include="External\tinygltf\json.hpp">
+      <Filter>01 External Files\TinyGLTF</Filter>
+    </ClInclude>
+    <ClInclude Include="External\tinygltf\stb_image.h">
+      <Filter>01 External Files\TinyGLTF</Filter>
+    </ClInclude>
+    <ClInclude Include="External\tinygltf\tiny_gltf.h">
+      <Filter>01 External Files\TinyGLTF</Filter>
+    </ClInclude>
+    <ClInclude Include="External\imgui\imconfig.h">
+      <Filter>01 External Files\ImGui</Filter>
+    </ClInclude>
+    <ClInclude Include="External\imgui\imgui.h">
+      <Filter>01 External Files\ImGui</Filter>
+    </ClInclude>
+    <ClInclude Include="External\imgui\imgui_impl_glfw.h">
+      <Filter>01 External Files\ImGui</Filter>
+    </ClInclude>
+    <ClInclude Include="External\imgui\imgui_impl_vulkan.h">
+      <Filter>01 External Files\ImGui</Filter>
+    </ClInclude>
+    <ClInclude Include="External\imgui\imgui_internal.h">
+      <Filter>01 External Files\ImGui</Filter>
+    </ClInclude>
+    <ClInclude Include="External\imgui\imstb_rectpack.h">
+      <Filter>01 External Files\ImGui</Filter>
+    </ClInclude>
+    <ClInclude Include="External\imgui\imstb_textedit.h">
+      <Filter>01 External Files\ImGui</Filter>
+    </ClInclude>
+    <ClInclude Include="External\imgui\imstb_truetype.h">
+      <Filter>01 External Files\ImGui</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

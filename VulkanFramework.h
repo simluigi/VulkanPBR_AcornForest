@@ -1,20 +1,23 @@
 /*======================================================================
-Vulkan Presentation : VulkanFramework.h
+VulkanPBR_AcornForest : VulkanFramework.h
 Author:			Sim Luigi
-Last Modified:	2020.12.13
+Last Modified:	2020.12.18
 =======================================================================*/
 #pragma once
 
-#define GLFW_INCLUDE_VULKAN    // VulkanSDKをGLFWと一緒にインクルードします。
-#include <GLFW/glfw3.h>        // replaces #include <vulkan/vulkan.h> and automatically bundles it with glfw include
-
+#define GLM_ENABLE_EXPERIMENTAL             // glm型のHash
+#define GLM_FORCE_RADIANS                   // glm::rotate関数をラジアンで処理する設定
+#define GLM_FORCE_DEPTH_ZERO_TO_ONE	        // GLMのプロジェクションマトリックスのZソート値は -1.0～1.0（OpenGL対応のため）
 #include <glm/glm.hpp>                      // glmインクルード
 #include <glm/gtc/matrix_transform.hpp>     // モデルトランスフォーム
 #include <glm/gtx/hash.hpp>
 
 #include <array>
 #include <optional>
-#include <iostream>  // std::cerr, try to migrate out of debug callback
+#include <iostream>          // std::cerr, try to migrate out of debug callback
+
+#define GLFW_INCLUDE_VULKAN    // VulkanSDKをGLFWと一緒にインクルードします。
+#include <GLFW/glfw3.h>        // replaces #include <vulkan/vulkan.h> and automatically bundles it with glfw include
 
 struct Vertex
 {
@@ -94,8 +97,8 @@ struct UniformBufferObject
 	alignas(16) glm::mat4 model;
 	alignas(16) glm::mat4 view;
 	alignas(16) glm::mat4 proj;
+	alignas(16) glm::vec3 camPos;
 };
-
 
 // Vulkan上のあらゆる処理はキューで処理されています。処理によってキューの種類も異なります。
 struct QueueFamilyIndices
@@ -122,106 +125,20 @@ struct SwapChainSupportDetails
 	std::vector<VkPresentModeKHR> presentModes;
 };
 
+// マウスボタン
+// mouse buttons
+struct MouseButtons
+{
+	bool left = false;
+	bool right = false;
+	bool middle = false;
+};
+
 
 // Main class
 // メインクラス
 class CVulkanFramework
 {
-
-public:
-
-	// 000 デバッグコールバック
-	static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
-		VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,     // エラーの重要さ；比較オペレータで比べられます。
-		VkDebugUtilsMessageTypeFlagsEXT messageType,
-		const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData,
-		void* pUserData);
-
-	void populateDebugMessengerCreateInfo
-	    (VkDebugUtilsMessengerCreateInfoEXT& createInfo);    // 001 デバッグメッセンジャー用メッセージ生成
-	void setupDebugMessenger();                              // 002 デバッグメッセンジャー設定
-	bool checkValidationLayerSupport();                      // 003 バリデーションレイヤー対応確認
-	std::vector<const char*> getRequiredExtensions();    	 // 004 バリデーションレイヤーエクステンションを獲得
-
-
-	
-
-	void run();         
-	void mainLoop();    
-
-	void initWindow();                   // 101 ウインドウ初期化
-	void initVulkan();                   // 102 Vulkan初期化
-	void createInstance();               // 103 Vulkanインスタンス初期化
-	void createSurface();                // 104 GLFWサーフェス生成
-	void pickPhysicalDevice();           // 105 Vulkan対応GPUを選択
-	void createLogicalDevice();          // 106 ロジカルデバイス生成（デバイスお姉さん）
-	void createSwapChain();              // 107 スワップチェイン生成
-	void createImageViews();             // 108 イメージビュー生成
-	void createRenderPass();             // レンダーパス
-	void createDescriptorSetLayout();    // リソースでスクリプターレイアウト 
-	void createGraphicsPipeline();       // グラフィックスパイプライン生成
-	void createColorResources();         // カラーリソース生成（MSAA)
-	void createDepthResources();         // デプスリソース生成
-	void createFramebuffers();           // フレームバッファ生成（デプスリソースの後）
-	void createCommandPool();            // コマンドバッファーを格納するプールを生成
-	void createTextureImage();           // テクスチャーマッピング用画像生成
-	void createTextureImageView();       // テクスチャーをアクセスするためのイメージビュー生成
-	void createTextureSampler();         // テクスチャーサンプラー生成
-	void loadModel();                    // モデルデータを読み込み
-	void createVertexBuffer();           // 頂点バッファー生成
-	void createIndexBuffer();		     // インデックスバッファー生成
-	void createUniformBuffers();         // ユニフォームバッファー生成
-	void createDescriptorPool();         // デスクリプターセットを格納するプールを生成
-	void createDescriptorSets();         // デスクリプターセットを生成
-	void createCommandBuffers();         // コマンドバッファー生成
-	void createSyncObjects();            // 処理同期オブジェクト生成
-	
-
-	VkImageView createImageView(VkImage image, VkFormat format, VkImageAspectFlags aspectFlags, uint32_t mipLevels);
-	void createImage(uint32_t width, uint32_t height, uint32_t mipLevels, VkSampleCountFlagBits numSamples, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage& image, VkDeviceMemory& imageMemory);
-	VkFormat findSupportedFormat(const std::vector<VkFormat>& candidates, VkImageTiling tiling, VkFormatFeatureFlags features);
-	VkShaderModule createShaderModule(const std::vector<char>& code);
-	
-	static std::vector<char> readFile(const std::string& fileName);
-	
-	void createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties,
-		VkBuffer& buffer, VkDeviceMemory& bufferMemory);
-	void copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size);
-	void copyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height);
-	void transitionImageLayout(VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout, uint32_t mipLevels);
-	VkCommandBuffer beginSingleTimeCommands();
-	void endSingleTimeCommands(VkCommandBuffer commandBuffer);
-	void generateMipmaps(VkImage image, VkFormat imageFormat, int32_t texWidth, int32_t texHeight, uint32_t mipLevels);
-
-	//----------------
-
-	bool isDeviceSuitable(VkPhysicalDevice device);
-	bool checkDeviceExtensionSupport(VkPhysicalDevice device);
-	QueueFamilyIndices findQueueFamilies(VkPhysicalDevice device);
-	SwapChainSupportDetails querySwapChainSupport(VkPhysicalDevice device);
-	VkSampleCountFlagBits getMaxUseableSampleCount();
-	VkSurfaceFormatKHR chooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& availableFormats);
-	VkPresentModeKHR chooseSwapPresentMode(const std::vector<VkPresentModeKHR>& availablePresentModes);
-	VkExtent2D chooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabilites);
-	VkFormat findDepthFormat();
-	uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties);
-	bool hasStencilComponent(VkFormat format);
-
-
-
-	static void framebufferResizeCallback
-	    (GLFWwindow* window, int width, int height);
-	void recreateSwapChain();
-	void updateUniformBuffer(uint32_t currentImage);
-	void drawFrame();
-	
-	void cleanup();
-	void cleanupSwapChain();
-
-
-
-
-
 private:
 
 	GLFWwindow*                     m_Window;                // WINDOWSではなくGLFW;　クロスプラットフォーム対応
@@ -281,6 +198,9 @@ private:
 	VkDeviceMemory                  m_ColorImageMemory;                       // マルチサンプリングバッファー用
 	VkImageView                     m_ColorImageView;                         // マルチサンプリングバッファー用
 
+	uint32_t                        m_ImageCount;
+	uint32_t                        m_MinImageCount;
+
 	// Semaphore：簡単に「シグナル」。処理を同期するために利用します。
 	// Fence: GPU-CPUの間の同期機能；ゲート見たいなストッパーである。
 	std::vector<VkSemaphore>        m_ImageAvailableSemaphores;    // イメージ描画準備完了セマフォ
@@ -289,6 +209,110 @@ private:
 	std::vector<VkFence>            m_ImagesInFlight;              // 処理中の画像
 	size_t                          m_CurrentFrame = 0;            // 現在こフレームカウンター
 
-	bool m_FramebufferResized = false;    // ウウィンドウサイズが変更したか
+	bool                            m_FramebufferResized = false;  // ウウィンドウサイズが変更したか
+
+	bool                            m_ImGuiDisplayed;              // ImGui表示中フラッグ
+	VkRenderPass                    m_ImGuiRenderPass;             // ImGui専用レンダーパス
+	VkCommandPool                   m_ImGuiCommandPool;            // ImGui専用コマンドプール
+	std::vector<VkCommandBuffer>    m_ImGuiCommandBuffers;         // ImGui専用コマンドバッファー
+	std::vector<VkFramebuffer>      m_ImGuiFramebuffers;            // ImGui専用フレームバッファー
+	VkDescriptorPool                m_ImGuiDescriptorPool;         // ImGui専用でスクリプタープール
+
+public:
+
+	// 000 デバッグコールバック
+	static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
+		VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,     // エラーの重要さ；比較オペレータで比べられます。
+		VkDebugUtilsMessageTypeFlagsEXT messageType,
+		const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData,
+		void* pUserData);
+
+	void populateDebugMessengerCreateInfo
+	    (VkDebugUtilsMessengerCreateInfoEXT& createInfo);    // 001 デバッグメッセンジャー用メッセージ生成
+	void setupDebugMessenger();                              // 002 デバッグメッセンジャー設定
+	bool checkValidationLayerSupport();                      // 003 バリデーションレイヤー対応確認
+	std::vector<const char*> getRequiredExtensions();    	 // 004 バリデーションレイヤーエクステンションを獲得
+
+	void run();         
+	void mainLoop();   
+
+	                                     // 整理中
+	void initWindow();                   // 101 ウインドウ初期化
+	void initVulkan();                   // 102 Vulkan初期化
+	void createInstance();               // 103 Vulkanインスタンス初期化
+	void createSurface();                // 104 GLFWサーフェス生成
+	void pickPhysicalDevice();           // 105 Vulkan対応GPUを選択
+	void createLogicalDevice();          // 106 ロジカルデバイス生成（デバイスお姉さん）
+	void createSwapChain();              // 107 スワップチェイン生成
+	void createImageViews();             // 108 イメージビュー生成
+	void createRenderPass();             // レンダーパス
+	void createDescriptorSetLayout();    // リソースでスクリプターレイアウト 
+	void createGraphicsPipeline();       // グラフィックスパイプライン生成
+	void createColorResources();         // カラーリソース生成（MSAA)
+	void createDepthResources();         // デプスリソース生成
+	void createFramebuffers();           // フレームバッファ生成（デプスリソースの後）
+
+	void createCommandPool();            // コマンドバッファーを格納するプールを生成
+
+	void createTextureImage();           // テクスチャーマッピング用画像生成
+	void createTextureImageView();       // テクスチャーをアクセスするためのイメージビュー生成
+	void createTextureSampler();         // テクスチャーサンプラー生成
+	void loadModel();                    // モデルデータを読み込み
+	void createVertexBuffer();           // 頂点バッファー生成
+	void createIndexBuffer();		     // インデックスバッファー生成
+	void createUniformBuffers();         // ユニフォームバッファー生成
+	void createDescriptorPool();         // デスクリプターセットを格納するプールを生成
+	void createDescriptorSets();         // デスクリプターセットを生成
+
+	// コマンドバッファー生成
+	void createCommandBuffers();   
+
+	void createSyncObjects();            // 処理同期オブジェクト生成
+
+	void initImGui();                    // ImGui初期化
+	void createImGuiRenderPass();        // ImGui専用レンダーパス
+	void createImGuiDescriptorPool();    // ImGui専用でスクリプタープールプールを生成
+	void createImGuiFrame();
+	void setupImGuiWindow();
+
+
+	VkImageView createImageView(VkImage image, VkFormat format, VkImageAspectFlags aspectFlags, uint32_t mipLevels);
+	void createImage(uint32_t width, uint32_t height, uint32_t mipLevels, VkSampleCountFlagBits numSamples, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage& image, VkDeviceMemory& imageMemory);
+	VkFormat findSupportedFormat(const std::vector<VkFormat>& candidates, VkImageTiling tiling, VkFormatFeatureFlags features);
+	VkShaderModule createShaderModule(const std::vector<char>& code);
+	
+	static std::vector<char> readFile(const std::string& fileName);
+	
+	void createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties,
+		VkBuffer& buffer, VkDeviceMemory& bufferMemory);
+	void copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size);
+	void copyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height);
+	void transitionImageLayout(VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout, uint32_t mipLevels);
+	VkCommandBuffer beginSingleTimeCommands();
+	void endSingleTimeCommands(VkCommandBuffer commandBuffer);
+	void generateMipmaps(VkImage image, VkFormat imageFormat, int32_t texWidth, int32_t texHeight, uint32_t mipLevels);
+
+	//----------------
+
+	bool isDeviceSuitable(VkPhysicalDevice device);
+	bool checkDeviceExtensionSupport(VkPhysicalDevice device);
+	QueueFamilyIndices findQueueFamilies(VkPhysicalDevice device);
+	SwapChainSupportDetails querySwapChainSupport(VkPhysicalDevice device);
+	VkSampleCountFlagBits getMaxUseableSampleCount();
+	VkSurfaceFormatKHR chooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& availableFormats);
+	VkPresentModeKHR chooseSwapPresentMode(const std::vector<VkPresentModeKHR>& availablePresentModes);
+	VkExtent2D chooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabilites);
+	VkFormat findDepthFormat();
+	uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties);
+	bool hasStencilComponent(VkFormat format);
+
+	static void framebufferResizeCallback
+	    (GLFWwindow* window, int width, int height);
+	void recreateSwapChain();
+	void updateUniformBuffer(uint32_t currentImage);
+	void drawFrame();
+
+	void cleanup();
+	void cleanupSwapChain();
 
 };
