@@ -128,134 +128,134 @@ const bool enableValidationLayers = true;
 // Debug-related Functions
 //====================================================================================
 
-// デバッグメッセンジャー生成
-// エクステンション関数：自動的にロードされていません。
-// 関数アドレスをvkGetInstanceProcedureAddr()で特定できます。
-// extension function; not automatically loaded. Need to specify address via	
-// vkGetInstanceProcedureAddr()
+	// デバッグメッセンジャー生成
+	// エクステンション関数：自動的にロードされていません。
+	// 関数アドレスをvkGetInstanceProcedureAddr()で特定できます。
+	// extension function; not automatically loaded. Need to specify address via	
+	// vkGetInstanceProcedureAddr()
 
-// クラス外で定義：デバッグメッセンジャー生成
-VkResult CreateDebugUtilsMessengerEXT(        
-	VkInstance instance,
-	const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo,
-	const VkAllocationCallbacks* pAllocator,
-	VkDebugUtilsMessengerEXT* pDebugMessenger)
-{
-	PFN_vkCreateDebugUtilsMessengerEXT func = (PFN_vkCreateDebugUtilsMessengerEXT)vkGetInstanceProcAddr
-	(instance, "vkCreateDebugUtilsMessengerEXT");
-	if (func != nullptr)
+	// クラス外で定義：デバッグメッセンジャー生成
+	VkResult CreateDebugUtilsMessengerEXT(
+		VkInstance instance,
+		const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo,
+		const VkAllocationCallbacks* pAllocator,
+		VkDebugUtilsMessengerEXT* pDebugMessenger)
 	{
-		return func(instance, pCreateInfo, pAllocator, pDebugMessenger);
-	}
-	else
-	{
-		return VK_ERROR_EXTENSION_NOT_PRESENT;
-	}
-}
-
-// クラス外で定義：デバッグメッセンジャー削除
-void DestroyDebugUtilsMessengerEXT(
-	VkInstance instance,
-	VkDebugUtilsMessengerEXT debugMessenger,
-	const VkAllocationCallbacks* pAllocator)
-{
-	PFN_vkDestroyDebugUtilsMessengerEXT func = (PFN_vkDestroyDebugUtilsMessengerEXT)vkGetInstanceProcAddr(instance, "vkDestroyDebugUtilsMessengerEXT");
-	if (func != nullptr)
-	{
-		func(instance, debugMessenger, pAllocator);
-	}
-}
-
-// デバッグコールバック
-VKAPI_ATTR VkBool32 VKAPI_CALL CVulkanFramework::debugCallback(
-	VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,     // エラーの重要さ；比較オペレータで比べられます。
-	VkDebugUtilsMessageTypeFlagsEXT messageType,
-	const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData,
-	void* pUserData)
-{
-	std::cerr << "validation layer: " << pCallbackData->pMessage << std::endl;
-
-	// boolean indicating if Vulkan call that triggered the validation layer message should be aborted
-	// if callback returns true, call is aborted with VK_ERROR_VALIDATION_FAILED_EXT error. 
-	// Should always return VK_FALSE unless testing validation layer itself.
-	return VK_FALSE;
-}
-
-// デバッグメッセージ構造体に必要なエクステンションを代入する関数
-void CVulkanFramework::populateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT& createInfo)
-{
-	createInfo = {};    // デバッグメッセンジャー情報構造体
-	createInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
-	createInfo.messageSeverity = /*VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT|*/ VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
-	createInfo.messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
-	createInfo.pfnUserCallback = debugCallback;
-
-}
-
-// デバッグメッセージ設定
-void CVulkanFramework::setupDebugMessenger()
-{
-	if (enableValidationLayers == false)    // デバッグモードではない場合、無視します  Only works in debug mode
-		return;
-
-	VkDebugUtilsMessengerCreateInfoEXT createInfo{};
-	populateDebugMessengerCreateInfo(createInfo);
-
-	if (CreateDebugUtilsMessengerEXT(m_Instance, &createInfo, nullptr, &m_DebugMessenger) != VK_SUCCESS)
-	{
-		throw std::runtime_error("Failed to set up debug messenger!");
-	}
-}
-
-// バリデーションレイヤーがサポートされているかの確認
-bool CVulkanFramework::checkValidationLayerSupport()
-{
-	uint32_t layerCount;
-	vkEnumerateInstanceLayerProperties(&layerCount, nullptr);                   // バリデーションレイヤー数を特定
-
-	std::vector<VkLayerProperties> availableLayers(layerCount);                 // カウントによりベクトルを生成します
-	vkEnumerateInstanceLayerProperties(&layerCount, availableLayers.data());    // 情報をベクトルに代入
-
-	for (const char* layerName : validationLayers)
-	{
-		bool layerFound = false;
-
-		for (const VkLayerProperties& layerProperties : availableLayers)
+		PFN_vkCreateDebugUtilsMessengerEXT func = (PFN_vkCreateDebugUtilsMessengerEXT)vkGetInstanceProcAddr
+		(instance, "vkCreateDebugUtilsMessengerEXT");
+		if (func != nullptr)
 		{
-			// レイヤー名が既存のバリデーションレイヤーに合ってる場合 if layer name matches existing validation layer name
-			if (strcmp(layerName, layerProperties.layerName) == 0)
+			return func(instance, pCreateInfo, pAllocator, pDebugMessenger);
+		}
+		else
+		{
+			return VK_ERROR_EXTENSION_NOT_PRESENT;
+		}
+	}
+
+	// クラス外で定義：デバッグメッセンジャー削除
+	void DestroyDebugUtilsMessengerEXT(
+		VkInstance instance,
+		VkDebugUtilsMessengerEXT debugMessenger,
+		const VkAllocationCallbacks* pAllocator)
+	{
+		PFN_vkDestroyDebugUtilsMessengerEXT func = (PFN_vkDestroyDebugUtilsMessengerEXT)vkGetInstanceProcAddr(instance, "vkDestroyDebugUtilsMessengerEXT");
+		if (func != nullptr)
+		{
+			func(instance, debugMessenger, pAllocator);
+		}
+	}
+
+	// デバッグコールバック
+	VKAPI_ATTR VkBool32 VKAPI_CALL CVulkanFramework::debugCallback(
+		VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,     // エラーの重要さ；比較オペレータで比べられます。
+		VkDebugUtilsMessageTypeFlagsEXT messageType,
+		const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData,
+		void* pUserData)
+	{
+		std::cerr << "validation layer: " << pCallbackData->pMessage << std::endl;
+
+		// boolean indicating if Vulkan call that triggered the validation layer message should be aborted
+		// if callback returns true, call is aborted with VK_ERROR_VALIDATION_FAILED_EXT error. 
+		// Should always return VK_FALSE unless testing validation layer itself.
+		return VK_FALSE;
+	}
+
+	// デバッグメッセージ構造体に必要なエクステンションを代入する関数
+	void CVulkanFramework::populateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT& createInfo)
+	{
+		createInfo = {};    // デバッグメッセンジャー情報構造体
+		createInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
+		createInfo.messageSeverity = /*VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT|*/ VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
+		createInfo.messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
+		createInfo.pfnUserCallback = debugCallback;
+
+	}
+
+	// デバッグメッセージ設定
+	void CVulkanFramework::setupDebugMessenger()
+	{
+		if (enableValidationLayers == false)    // デバッグモードではない場合、無視します  Only works in debug mode
+			return;
+
+		VkDebugUtilsMessengerCreateInfoEXT createInfo{};
+		populateDebugMessengerCreateInfo(createInfo);
+
+		if (CreateDebugUtilsMessengerEXT(m_Instance, &createInfo, nullptr, &m_DebugMessenger) != VK_SUCCESS)
+		{
+			throw std::runtime_error("Failed to set up debug messenger!");
+		}
+	}
+
+	// バリデーションレイヤーがサポートされているかの確認
+	bool CVulkanFramework::checkValidationLayerSupport()
+	{
+		uint32_t layerCount;
+		vkEnumerateInstanceLayerProperties(&layerCount, nullptr);                   // バリデーションレイヤー数を特定
+
+		std::vector<VkLayerProperties> availableLayers(layerCount);                 // カウントによりベクトルを生成します
+		vkEnumerateInstanceLayerProperties(&layerCount, availableLayers.data());    // 情報をベクトルに代入
+
+		for (const char* layerName : validationLayers)
+		{
+			bool layerFound = false;
+
+			for (const VkLayerProperties& layerProperties : availableLayers)
 			{
-				layerFound = true;		// 見つかったフラッグ
-				break;
+				// レイヤー名が既存のバリデーションレイヤーに合ってる場合 if layer name matches existing validation layer name
+				if (strcmp(layerName, layerProperties.layerName) == 0)
+				{
+					layerFound = true;		// 見つかったフラッグ
+					break;
+				}
+			}
+
+			// 今までのレイヤーが既存のレイヤーリストに見つかった限り、全てのレイヤーが確認するまでループが続きます
+			// as long as layer is found in the list, loop will continue until all validation layers have been verified
+			if (layerFound == false)
+			{
+				return false;
 			}
 		}
-
-		// 今までのレイヤーが既存のレイヤーリストに見つかった限り、全てのレイヤーが確認するまでループが続きます
-		// as long as layer is found in the list, loop will continue until all validation layers have been verified
-		if (layerFound == false)
-		{
-			return false;
-		}
+		return true;
 	}
-	return true;
-}
 
-// 必要なエクステンションの一覧（デバッグ機能がオン・オフによって異なります）
-// returns the list of extensions based on whether validation layers are enabled or not
-std::vector<const char*> CVulkanFramework::getRequiredExtensions()
-{
-	uint32_t glfwExtensionCount = 0;
-	const char** glfwExtensions;
-	glfwExtensions = glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
-
-	std::vector<const char*> extensions(glfwExtensions, glfwExtensions + glfwExtensionCount);
-
-	if (enableValidationLayers == true)
+	// 必要なエクステンションの一覧（デバッグ機能がオン・オフによって異なります）
+	// returns the list of extensions based on whether validation layers are enabled or not
+	std::vector<const char*> CVulkanFramework::getRequiredExtensions()
 	{
-		extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
+		uint32_t glfwExtensionCount = 0;
+		const char** glfwExtensions;
+		glfwExtensions = glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
+
+		std::vector<const char*> extensions(glfwExtensions, glfwExtensions + glfwExtensionCount);
+
+		if (enableValidationLayers == true)
+		{
+			extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
+		}
+		return extensions;
 	}
-	return extensions;
-}
 
 
 //====================================================================================
@@ -279,6 +279,8 @@ void CVulkanFramework::mainLoop()
 	{
 		glfwPollEvents();    // イベント待機  Update/event checker
 		drawFrame();         // フレーム描画
+		setupImGuiWindow();
+		createImGuiFrame();
 	}
 
 	// プログラム終了（後片付け）の前に、既に動いている処理を済ませます。
@@ -334,9 +336,11 @@ void CVulkanFramework::initVulkan()
 	createCommandBuffers();         // コマンドバッファー生成
 	createSyncObjects();            // 処理同期オブジェクト生成
 
+
 	createImGuiRenderPass();
 	createImGuiDescriptorPool();
 	initImGui();
+	setupImGuiWindow();
 	createImGuiFrame();
 	
 }
@@ -1554,7 +1558,7 @@ void CVulkanFramework::initImGui()
 	ImGui::CreateContext();
 	ImGuiIO& io = ImGui::GetIO(); (void)io;
 
-	io.DisplaySize = ImVec2(300, 300);
+	io.DisplaySize = ImVec2(100, 100);
 	io.DisplayFramebufferScale = ImVec2(1.0f, 1.0f);
 
 	// ImGuiスタイル設定
@@ -1563,9 +1567,6 @@ void CVulkanFramework::initImGui()
 	// プラットフォーム・レンダラー専用初期化
 	// Platform (GLFW), Renderer(Vulkan) specific initializations
 	ImGui_ImplGlfw_InitForVulkan(m_Window, true);
-
-	// ImGui専用生成
-
 	
 	ImGui_ImplVulkan_InitInfo initInfo{};    // ImGui初期化情報構造体
 	
@@ -1665,20 +1666,20 @@ void CVulkanFramework::createImGuiDescriptorPool()
 	}
 }
 
-
 // ImGui初期化
 void CVulkanFramework::setupImGuiWindow()
 {
+	// ImGui start
 	ImGuiIO& io = ImGui::GetIO();
 	ImGui_ImplVulkan_NewFrame();
 	ImGui_ImplGlfw_NewFrame();
-
 	ImGui::NewFrame();
-	ImGui::Begin("Test");
 
+	ImGui::Begin("Test");
+	ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
 	ImGui::End();
 
-	// ImGui::ShowDemoWindow();
+	ImGui::ShowDemoWindow();
 	ImGui::Render();
 
 }
@@ -1719,17 +1720,7 @@ void CVulkanFramework::createImGuiFrame()
 	}
 
 	// ImGui start
-	ImGuiIO& io = ImGui::GetIO();
-	ImGui_ImplVulkan_NewFrame();
-	ImGui_ImplGlfw_NewFrame();
-	ImGui::NewFrame();
-
-	ImGui::Begin("Test");
-	ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
-	ImGui::End();
-
-	ImGui::ShowDemoWindow();
-	ImGui::Render();
+	// setupImGuiWindow();
 
 	for (size_t i = 0; i < m_ImGuiCommandBuffers.size(); i++)
 	{
@@ -2340,10 +2331,10 @@ void CVulkanFramework::drawFrame()
 	// mark the image as now being in use by this frame
 	m_ImagesInFlight[imageIndex] = m_InFlightFences[m_CurrentFrame];
 
-	// combining two command buffers
+	// シーン描画とImGuiそれぞれのコマンドバッファーを合成する配列
+	// combining both render and ImGui command buffers into one submit array
 	std::array<VkCommandBuffer, 2> submitCommandBuffers =
 	{ m_CommandBuffers[imageIndex], m_ImGuiCommandBuffers[imageIndex] };
-
 
 	VkSubmitInfo submitInfo{};    // キュー同期・提出情報構造体
 	submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
