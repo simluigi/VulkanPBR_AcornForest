@@ -279,8 +279,7 @@ void CVulkanFramework::mainLoop()
 	{
 		glfwPollEvents();    // イベント待機  Update/event checker
 		drawFrame();         // フレーム描画
-		setupImGuiWindow();
-		createImGuiFrame();
+		drawImGuiFrame();
 	}
 
 	// プログラム終了（後片付け）の前に、既に動いている処理を済ませます。
@@ -323,7 +322,7 @@ void CVulkanFramework::initVulkan()
 	createColorResources();         // カラーリソース生成（MSAA)
 	createDepthResources();         // デプスリソース生成
 	createFramebuffers();           // フレームバッファ生成（デプスリソースの後）
-	createCommandPool();            // コマンドバッファーを格納するプールを生成
+	createCommandPool(m_CommandPool, 0);    // コマンドバッファーを格納するプールを生成     
 	createTextureImage();           // テクスチャーマッピング用画像生成
 	createTextureImageView();       // テクスチャーをアクセスするためのイメージビュー生成
 	createTextureSampler();         // テクスチャーサンプラー生成
@@ -336,13 +335,14 @@ void CVulkanFramework::initVulkan()
 	createCommandBuffers();         // コマンドバッファー生成
 	createSyncObjects();            // 処理同期オブジェクト生成
 
-
+	// ImGui
 	createImGuiRenderPass();
 	createImGuiDescriptorPool();
 	initImGui();
-	setupImGuiWindow();
-	createImGuiFrame();
-	
+	createImGuiFramebuffers();
+	createCommandPool(m_ImGuiCommandPool, VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
+	allocateImGuiCommandBuffers();
+	drawImGuiFrame();
 }
 
 // Vulkanインスタンス生成 Create Vulkan Instance
@@ -1032,23 +1032,7 @@ void CVulkanFramework::createFramebuffers()
 	}
 }
 
-// コマンドバッファーを格納するコマンドプールを生成
-void CVulkanFramework::createCommandPool()
-{
-	QueueFamilyIndices queueFamilyIndices = findQueueFamilies(m_PhysicalDevice);
 
-	VkCommandPoolCreateInfo poolInfo{};    // コマンドプール情報構造体
-	poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
-	poolInfo.queueFamilyIndex = queueFamilyIndices.graphicsFamily.value();    // 描画するためグラフィックスキューを選択します
-																			  // drawing commands: graphics queue family chosen
-	poolInfo.flags = 0;    // 任意 optional
-
-	// 上記の構造体の情報に基づいて実際のコマンドプールを生成します。
-	if (vkCreateCommandPool(m_LogicalDevice, &poolInfo, nullptr, &m_CommandPool) != VK_SUCCESS)
-	{
-		throw std::runtime_error("Failed to create graphics command pool!");
-	}
-}
 
 // テクスチャーマッピング用画像を用意します
 void CVulkanFramework::createTextureImage()
@@ -1415,21 +1399,7 @@ void CVulkanFramework::createDescriptorSets()
 void CVulkanFramework::createCommandBuffers()
 {
 	m_CommandBuffers.resize(m_SwapChainFramebuffers.size());    // フレームバッファーサイズに合わせる
-
-	VkCommandBufferAllocateInfo allocInfo{};                    // メモリー割り当て情報構造体
-	allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-	allocInfo.commandPool = m_CommandPool;
-	allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-	// PRIMARY:	キューに直接渡せますが、他のコマンドバッファーから呼び出せません。
-	// can be submitted to queue for execution, but cannot be called from other command buffers
-	// SECONDARY:　キューに直接渡せませんが、プライマリーコマンドバッファーから呼び出せます。
-	// cannot be submitted directly, but can be called from primary command buffers
-	allocInfo.commandBufferCount = (uint32_t)m_CommandBuffers.size();
-
-	if (vkAllocateCommandBuffers(m_LogicalDevice, &allocInfo, m_CommandBuffers.data()) != VK_SUCCESS)
-	{
-		throw std::runtime_error("Failed to allocate command buffers!");
-	}
+	allocateCommandBuffers(m_CommandBuffers.data(), static_cast<uint32_t>(m_CommandBuffers.size()), m_CommandPool);
 
 	// コマンドバッファー登録開始 Starting command buffer recording
 	for (size_t i = 0; i < m_CommandBuffers.size(); i++)
@@ -1666,11 +1636,40 @@ void CVulkanFramework::createImGuiDescriptorPool()
 	}
 }
 
-// ImGui初期化
-void CVulkanFramework::setupImGuiWindow()
+void CVulkanFramework::createImGuiFramebuffers()
+{
+	// ImGuiフレームバッファー
+	m_ImGuiFramebuffers.resize(m_SwapChainImageViews.size());
+
+	VkFramebufferCreateInfo framebufferCreateInfoImGui{};
+	framebufferCreateInfoImGui.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
+	framebufferCreateInfoImGui.renderPass = m_ImGuiRenderPass;
+	framebufferCreateInfoImGui.attachmentCount = 1;
+
+	framebufferCreateInfoImGui.width = m_SwapChainExtent.width;
+	framebufferCreateInfoImGui.height = m_SwapChainExtent.height;
+	framebufferCreateInfoImGui.layers = 1;
+	for (size_t i = 0; i < m_ImGuiFramebuffers.size(); i++)
+	{
+		VkImageView attachment = m_SwapChainImageViews[i];
+		framebufferCreateInfoImGui.pAttachments = &attachment;
+		// 各フレーム、ImGuiフレームバッファーを生成
+		if (vkCreateFramebuffer(m_LogicalDevice, &framebufferCreateInfoImGui, nullptr, &m_ImGuiFramebuffers[i]) != VK_SUCCESS)
+		{
+			throw std::runtime_error("Failed to create ImGui framebuffer!");
+		}
+	}
+}
+
+void CVulkanFramework::allocateImGuiCommandBuffers()
+{
+	m_ImGuiCommandBuffers.resize(m_SwapChainImageViews.size());
+	allocateCommandBuffers(m_ImGuiCommandBuffers.data(), static_cast<uint32_t>(m_ImGuiCommandBuffers.size()), m_ImGuiCommandPool);
+}
+
+void CVulkanFramework::drawImGuiFrame()
 {
 	// ImGui start
-	ImGuiIO& io = ImGui::GetIO();
 	ImGui_ImplVulkan_NewFrame();
 	ImGui_ImplGlfw_NewFrame();
 	ImGui::NewFrame();
@@ -1678,77 +1677,23 @@ void CVulkanFramework::setupImGuiWindow()
 	ImGui::Begin("Test");
 	ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
 	ImGui::End();
-
-	ImGui::ShowDemoWindow();
+	//ImGui::ShowDemoWindow();
 	ImGui::Render();
 
+	createImGuiCommandBuffers();
 }
 
 // ImGuiフレームレンダー（途中）
-void CVulkanFramework::createImGuiFrame()
+void CVulkanFramework::createImGuiCommandBuffers()
 {
-	// createCommandPool Temp: convert to function later
-	QueueFamilyIndices queueFamilyIndices = findQueueFamilies(m_PhysicalDevice);
-
-	VkCommandPoolCreateInfo poolInfo{};    // コマンドプール情報構造体
-	poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
-	poolInfo.queueFamilyIndex = queueFamilyIndices.graphicsFamily.value();    // 描画するためグラフィックスキューを選択します
-																			  // drawing commands: graphics queue family chosen
-	poolInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
-
-	// 上記の構造体の情報に基づいて実際のコマンドプールを生成します。
-	if (vkCreateCommandPool(m_LogicalDevice, &poolInfo, nullptr, &m_ImGuiCommandPool) != VK_SUCCESS)
-	{
-		throw std::runtime_error("Failed to create graphics command pool!");
-	}
-
-	//resize
-	m_ImGuiCommandBuffers.resize(m_SwapChainImageViews.size());
-	m_ImGuiFramebuffers.resize(m_SwapChainImageViews.size());
-
-	// create command buffer Temp
-	// VkCommandBuffer* commandBuffer, uint32_t commandBufferCount, VkCommandPool &commandPool) {
-	VkCommandBufferAllocateInfo allocInfoImGui{};
-	allocInfoImGui.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-	allocInfoImGui.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-	allocInfoImGui.commandPool = m_ImGuiCommandPool;
-	allocInfoImGui.commandBufferCount = static_cast<uint32_t>(m_ImGuiCommandBuffers.size());
-	
-	if (vkAllocateCommandBuffers(m_LogicalDevice, &allocInfoImGui, m_ImGuiCommandBuffers.data()) != VK_SUCCESS)
-	{
-		throw std::runtime_error("Failed to allocate ImGui command buffers!");
-	}
-
-	// ImGui start
-	// setupImGuiWindow();
-
 	for (size_t i = 0; i < m_ImGuiCommandBuffers.size(); i++)
 	{
-		// ImGuiフレームバッファー
-		VkImageView attachment = m_SwapChainImageViews[i];
-		VkFramebufferCreateInfo framebufferCreateInfoImGui{};
-		framebufferCreateInfoImGui.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
-		framebufferCreateInfoImGui.renderPass = m_ImGuiRenderPass;
-		framebufferCreateInfoImGui.attachmentCount = 1;
-		framebufferCreateInfoImGui.pAttachments = &attachment;
-		framebufferCreateInfoImGui.width = m_SwapChainExtent.width;
-		framebufferCreateInfoImGui.height = m_SwapChainExtent.height;
-		framebufferCreateInfoImGui.layers = 1;
-
-		// reset command pool and record commands into a command buffer for ImGui
 		VkCommandBufferBeginInfo commandBufferBeginInfoImGui{};
 		commandBufferBeginInfoImGui.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-		// commandBufferBeginInfoImGui.flags |= VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
 
 		if (vkBeginCommandBuffer(m_ImGuiCommandBuffers[i], &commandBufferBeginInfoImGui) != VK_SUCCESS)
 		{
 			throw std::runtime_error("Failed to begin recording ImGui command buffer!");
-		}
-
-		// 各フレーム、ImGuiフレームバッファーを生成
-		if (vkCreateFramebuffer(m_LogicalDevice, &framebufferCreateInfoImGui, nullptr, &m_ImGuiFramebuffers[i]) != VK_SUCCESS)
-		{
-			throw std::runtime_error("Failed to create ImGui framebuffer!");
 		}
 
 		// レンダーパス開始
@@ -1780,6 +1725,43 @@ void CVulkanFramework::createImGuiFrame()
 			throw std::runtime_error("Failed to record command buffer!");
 		}
 	}
+
+	//VkCommandBufferBeginInfo commandBufferBeginInfoImGui{};
+	//commandBufferBeginInfoImGui.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+
+	//if (vkBeginCommandBuffer(m_ImGuiCommandBuffers[m_CurrentFrame], &commandBufferBeginInfoImGui) != VK_SUCCESS)
+	//{
+	//	throw std::runtime_error("Failed to begin recording ImGui command buffer!");
+	//}
+
+	//// レンダーパス開始
+	//// Starting a render pass
+	//VkRenderPassBeginInfo renderPassInfo{};		// レンダーパス情報構造体
+	//renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+	//renderPassInfo.renderPass = m_ImGuiRenderPass;
+	//renderPassInfo.framebuffer = m_ImGuiFramebuffers[m_CurrentFrame];
+	//renderPassInfo.renderArea.extent = m_SwapChainExtent;
+
+	//// クリアカラー
+	//VkClearValue clearValue{};
+	//clearValue.color = { 0.0f, 0.0f, 0.0f, 1.0f };    // 黒
+	//renderPassInfo.clearValueCount = 1;
+	//renderPassInfo.pClearValues = &clearValue;
+
+	//// 実際のレンダーパスを開始します
+	//vkCmdBeginRenderPass(m_ImGuiCommandBuffers[m_CurrentFrame], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
+
+	//// ImGuiレンダー
+	//ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), m_ImGuiCommandBuffers[m_CurrentFrame]);
+
+	//// レンダーパスを終了します
+	//vkCmdEndRenderPass(m_ImGuiCommandBuffers[m_CurrentFrame]);
+
+	//VkResult result = vkEndCommandBuffer(m_ImGuiCommandBuffers[m_CurrentFrame]);
+	//if (result != VK_SUCCESS)
+	//{
+	//	throw std::runtime_error("Failed to record command buffer!");
+	//}
 }
 
 //====================================================================================
@@ -1922,6 +1904,23 @@ std::vector<char> CVulkanFramework::readFile(const std::string& fileName)
 	return buffer;
 }
 
+// コマンドバッファーを格納するコマンドプールを生成
+void CVulkanFramework::createCommandPool(VkCommandPool &commandPool, VkCommandPoolCreateFlags flags)
+{
+	QueueFamilyIndices queueFamilyIndices = findQueueFamilies(m_PhysicalDevice);
+
+	VkCommandPoolCreateInfo poolInfo{};    // コマンドプール情報構造体
+	poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+	poolInfo.queueFamilyIndex = queueFamilyIndices.graphicsFamily.value();    // 描画：グラフィックス種類
+	poolInfo.flags = flags;
+
+	// 上記の構造体の情報に基づいて実際のコマンドプールを生成します。
+	if (vkCreateCommandPool(m_LogicalDevice, &poolInfo, nullptr, &commandPool) != VK_SUCCESS)
+	{
+		throw std::runtime_error("Failed to create graphics command pool!");
+	}
+}
+
 // 汎用バッファー生成関数
 void CVulkanFramework::createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties,
 	VkBuffer& buffer, VkDeviceMemory& bufferMemory)
@@ -1954,6 +1953,21 @@ void CVulkanFramework::createBuffer(VkDeviceSize size, VkBufferUsageFlags usage,
 
 	// 確保されたメモリー割り当てを頂点バッファーにバインドします
 	vkBindBufferMemory(m_LogicalDevice, buffer, bufferMemory, 0);
+}
+
+void CVulkanFramework::allocateCommandBuffers(VkCommandBuffer* commandBuffer,
+	uint32_t commandBufferCount, VkCommandPool &commandPool)
+{
+	VkCommandBufferAllocateInfo allocInfo{};                    // メモリー割り当て情報構造体
+	allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+	allocInfo.commandPool = commandPool;
+	allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+	allocInfo.commandBufferCount = commandBufferCount;
+
+	if (vkAllocateCommandBuffers(m_LogicalDevice, &allocInfo, commandBuffer) != VK_SUCCESS)
+	{
+		throw std::runtime_error("Failed to allocate command buffers!");
+	}
 }
 
 // バッファーコピー関数
@@ -2255,9 +2269,11 @@ void CVulkanFramework::recreateSwapChain()
 	createCommandBuffers();     // SwapChain内の画像に依存
 
 	createImGuiRenderPass();
-	createImGuiFrame();         // プレゼントに依存
-	
-	//ImGui_ImplVulkan_SetMinImageCount(m_MinImageCount);    // 更新後のm_MinImageCountをImGuiに渡す
+	createImGuiFramebuffers();
+	createCommandPool(m_ImGuiCommandPool, VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
+	allocateImGuiCommandBuffers();
+	createImGuiCommandBuffers();         
+	ImGui_ImplVulkan_SetMinImageCount(m_MinImageCount);    // 更新後のm_MinImageCountをImGuiに渡す
 }
 
 // ユニフォームバッファー更新（UBO）：マトリックストランスフォーム、カメラ設定

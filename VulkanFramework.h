@@ -215,7 +215,7 @@ private:
 	VkRenderPass                    m_ImGuiRenderPass;             // ImGui専用レンダーパス
 	VkCommandPool                   m_ImGuiCommandPool;            // ImGui専用コマンドプール
 	std::vector<VkCommandBuffer>    m_ImGuiCommandBuffers;         // ImGui専用コマンドバッファー
-	std::vector<VkFramebuffer>      m_ImGuiFramebuffers;            // ImGui専用フレームバッファー
+	std::vector<VkFramebuffer>      m_ImGuiFramebuffers;           // ImGui専用フレームバッファー
 	VkDescriptorPool                m_ImGuiDescriptorPool;         // ImGui専用でスクリプタープール
 
 public:
@@ -251,9 +251,6 @@ public:
 	void createColorResources();         // カラーリソース生成（MSAA)
 	void createDepthResources();         // デプスリソース生成
 	void createFramebuffers();           // フレームバッファ生成（デプスリソースの後）
-
-	void createCommandPool();            // コマンドバッファーを格納するプールを生成
-
 	void createTextureImage();           // テクスチャーマッピング用画像生成
 	void createTextureImageView();       // テクスチャーをアクセスするためのイメージビュー生成
 	void createTextureSampler();         // テクスチャーサンプラー生成
@@ -265,15 +262,18 @@ public:
 	void createDescriptorSets();         // デスクリプターセットを生成
 
 	// コマンドバッファー生成
+
 	void createCommandBuffers();   
 
 	void createSyncObjects();            // 処理同期オブジェクト生成
 
-	void initImGui();                    // ImGui初期化
-	void createImGuiRenderPass();        // ImGui専用レンダーパス
-	void createImGuiDescriptorPool();    // ImGui専用でスクリプタープールプールを生成
-	void createImGuiFrame();
-	void setupImGuiWindow();
+	void initImGui();                    
+	void createImGuiRenderPass();        
+	void createImGuiDescriptorPool();    
+	void createImGuiFramebuffers();
+	void allocateImGuiCommandBuffers();
+	void createImGuiCommandBuffers();
+	void drawImGuiFrame();
 
 
 	VkImageView createImageView(VkImage image, VkFormat format, VkImageAspectFlags aspectFlags, uint32_t mipLevels);
@@ -283,8 +283,10 @@ public:
 	
 	static std::vector<char> readFile(const std::string& fileName);
 	
+	void createCommandPool(VkCommandPool &commandPool, VkCommandPoolCreateFlags flags);
 	void createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties,
 		VkBuffer& buffer, VkDeviceMemory& bufferMemory);
+	void allocateCommandBuffers(VkCommandBuffer* commandBuffer, uint32_t commandBufferCount, VkCommandPool &commandPool);
 	void copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size);
 	void copyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height);
 	void transitionImageLayout(VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout, uint32_t mipLevels);
