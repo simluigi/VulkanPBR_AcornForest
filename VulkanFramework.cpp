@@ -342,7 +342,6 @@ void CVulkanFramework::initVulkan()
 	createImGuiFramebuffers();
 	createCommandPool(m_ImGuiCommandPool, VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
 	allocateImGuiCommandBuffers();
-	drawImGuiFrame();
 }
 
 // Vulkanインスタンス生成 Create Vulkan Instance
@@ -413,6 +412,7 @@ void CVulkanFramework::pickPhysicalDevice()
 	{
 		throw std::runtime_error("Failed to find GPUs with Vulkan support!");
 	}
+
 	std::vector<VkPhysicalDevice> devices(deviceCount);                     // 数えたGPUに基づいて物理デバイスベクトルを生成
 	vkEnumeratePhysicalDevices(m_Instance, &deviceCount, devices.data());   // デバイス情報をベクトルに代入
 
@@ -1142,6 +1142,7 @@ void CVulkanFramework::createTextureSampler()
 
 	VkPhysicalDeviceProperties properties{};
 	vkGetPhysicalDeviceProperties(m_PhysicalDevice, &properties);
+	m_PhysicalDeviceName = "GPU: " + std::string(properties.deviceName);
 
 	samplerInfo.anisotropyEnable = VK_TRUE;
 	samplerInfo.maxAnisotropy = properties.limits.maxSamplerAnisotropy;    // 最大限
@@ -1515,7 +1516,6 @@ void CVulkanFramework::createSyncObjects()
 	}
 }
 
-
 // ==================
 // ImGui実装未完成
 
@@ -1528,11 +1528,29 @@ void CVulkanFramework::initImGui()
 	ImGui::CreateContext();
 	ImGuiIO& io = ImGui::GetIO(); (void)io;
 
+	io.Fonts->AddFontFromFileTTF("Asset/Fonts/GILSansMT.ttf", 18);
+
 	io.DisplaySize = ImVec2(100, 100);
 	io.DisplayFramebufferScale = ImVec2(1.0f, 1.0f);
 
-	// ImGuiスタイル設定
-	ImGui::StyleColorsDark();
+	ImGuiStyle &style = ImGui::GetStyle();
+
+	// Color scheme
+	style.Colors[ImGuiCol_TitleBg]          = ImVec4(0.3f, 0.2f, 1.0f, 0.6f);
+	style.Colors[ImGuiCol_TitleBgActive]    = ImVec4(0.3f, 0.2f, 1.0f, 0.8f);
+	style.Colors[ImGuiCol_MenuBarBg]        = ImVec4(1.0f, 0.0f, 0.0f, 0.4f);
+	style.Colors[ImGuiCol_Header]           = ImVec4(1.0f, 0.0f, 0.0f, 0.4f);
+	style.Colors[ImGuiCol_HeaderActive]     = ImVec4(1.0f, 0.0f, 0.0f, 0.4f);
+	style.Colors[ImGuiCol_HeaderHovered]    = ImVec4(1.0f, 0.0f, 0.0f, 0.4f);
+	style.Colors[ImGuiCol_FrameBg]          = ImVec4(0.0f, 0.0f, 0.0f, 0.8f);
+	style.Colors[ImGuiCol_CheckMark]        = ImVec4(0.0f, 1.0f, 0.0f, 1.0f);
+	style.Colors[ImGuiCol_SliderGrab]       = ImVec4(1.0f, 0.0f, 0.0f, 0.4f);
+	style.Colors[ImGuiCol_SliderGrabActive] = ImVec4(1.0f, 0.0f, 0.0f, 0.8f);
+	style.Colors[ImGuiCol_FrameBgHovered]   = ImVec4(1.0f, 1.0f, 1.0f, 0.1f);
+	style.Colors[ImGuiCol_FrameBgActive]    = ImVec4(1.0f, 1.0f, 1.0f, 0.2f);
+	style.Colors[ImGuiCol_Button]           = ImVec4(1.0f, 0.0f, 0.0f, 0.4f);
+	style.Colors[ImGuiCol_ButtonHovered]    = ImVec4(1.0f, 0.0f, 0.0f, 0.6f);
+	style.Colors[ImGuiCol_ButtonActive]     = ImVec4(1.0f, 0.0f, 0.0f, 0.8f);
 
 	// プラットフォーム・レンダラー専用初期化
 	// Platform (GLFW), Renderer(Vulkan) specific initializations
@@ -1674,10 +1692,14 @@ void CVulkanFramework::drawImGuiFrame()
 	ImGui_ImplGlfw_NewFrame();
 	ImGui::NewFrame();
 
-	ImGui::Begin("Test");
-	ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
+	const std::string font = "Roboto-Regular";
+
+	ImGui::SetNextWindowPos(ImVec2(10, 10));
+	ImGui::Begin("Vulkan Custom Rendering Engine");
+	ImGui::Text("%s", m_PhysicalDeviceName.c_str());
+	ImGui::Text("%.1f FPS (%.2f ms)", ImGui::GetIO().Framerate, 1000.0f / ImGui::GetIO().Framerate);
+
 	ImGui::End();
-	//ImGui::ShowDemoWindow();
 	ImGui::Render();
 
 	createImGuiCommandBuffers();
@@ -1725,43 +1747,6 @@ void CVulkanFramework::createImGuiCommandBuffers()
 			throw std::runtime_error("Failed to record command buffer!");
 		}
 	}
-
-	//VkCommandBufferBeginInfo commandBufferBeginInfoImGui{};
-	//commandBufferBeginInfoImGui.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-
-	//if (vkBeginCommandBuffer(m_ImGuiCommandBuffers[m_CurrentFrame], &commandBufferBeginInfoImGui) != VK_SUCCESS)
-	//{
-	//	throw std::runtime_error("Failed to begin recording ImGui command buffer!");
-	//}
-
-	//// レンダーパス開始
-	//// Starting a render pass
-	//VkRenderPassBeginInfo renderPassInfo{};		// レンダーパス情報構造体
-	//renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-	//renderPassInfo.renderPass = m_ImGuiRenderPass;
-	//renderPassInfo.framebuffer = m_ImGuiFramebuffers[m_CurrentFrame];
-	//renderPassInfo.renderArea.extent = m_SwapChainExtent;
-
-	//// クリアカラー
-	//VkClearValue clearValue{};
-	//clearValue.color = { 0.0f, 0.0f, 0.0f, 1.0f };    // 黒
-	//renderPassInfo.clearValueCount = 1;
-	//renderPassInfo.pClearValues = &clearValue;
-
-	//// 実際のレンダーパスを開始します
-	//vkCmdBeginRenderPass(m_ImGuiCommandBuffers[m_CurrentFrame], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
-
-	//// ImGuiレンダー
-	//ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), m_ImGuiCommandBuffers[m_CurrentFrame]);
-
-	//// レンダーパスを終了します
-	//vkCmdEndRenderPass(m_ImGuiCommandBuffers[m_CurrentFrame]);
-
-	//VkResult result = vkEndCommandBuffer(m_ImGuiCommandBuffers[m_CurrentFrame]);
-	//if (result != VK_SUCCESS)
-	//{
-	//	throw std::runtime_error("Failed to record command buffer!");
-	//}
 }
 
 //====================================================================================

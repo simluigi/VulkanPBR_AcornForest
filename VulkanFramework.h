@@ -150,6 +150,9 @@ private:
 
 	VkPhysicalDevice    m_PhysicalDevice = VK_NULL_HANDLE;   // 物理デバイス（GPU・グラフィックスカード）
 	VkDevice            m_LogicalDevice;                     // 物理デバイスとのシステムインターフェース
+
+	std::string         m_PhysicalDeviceName;                // GPU名
+
 	VkQueue                         m_GraphicsQueue;         // グラフィックス専用キュー
 	VkQueue                         m_PresentQueue;          // プレゼント（描画）専用キュー
 
