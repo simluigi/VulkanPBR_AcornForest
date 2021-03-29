@@ -28,9 +28,6 @@
     <ClCompile Include="VulkanFramework.cpp">
       <Filter>00 Framework</Filter>
     </ClCompile>
-    <ClCompile Include="modelLoader.cpp">
-      <Filter>02 Resource Implementation</Filter>
-    </ClCompile>
     <ClCompile Include="External\imgui\imgui.cpp">
       <Filter>01 External Files\ImGui</Filter>
     </ClCompile>
@@ -53,18 +50,6 @@
   <ItemGroup>
     <ClInclude Include="VulkanFramework.h">
       <Filter>00 Framework</Filter>
-    </ClInclude>
-    <ClInclude Include="modelLoader.h">
-      <Filter>02 Resource Implementation</Filter>
-    </ClInclude>
-    <ClInclude Include="External\tinygltf\json.hpp">
-      <Filter>01 External Files\TinyGLTF</Filter>
-    </ClInclude>
-    <ClInclude Include="External\tinygltf\stb_image.h">
-      <Filter>01 External Files\TinyGLTF</Filter>
-    </ClInclude>
-    <ClInclude Include="External\tinygltf\tiny_gltf.h">
-      <Filter>01 External Files\TinyGLTF</Filter>
     </ClInclude>
     <ClInclude Include="External\imgui\imconfig.h">
       <Filter>01 External Files\ImGui</Filter>
@@ -89,6 +74,15 @@
     </ClInclude>
     <ClInclude Include="External\imgui\imstb_truetype.h">
       <Filter>01 External Files\ImGui</Filter>
+    </ClInclude>
+    <ClInclude Include="External\tinygltf\json.hpp">
+      <Filter>01 External Files\TinyGLTF</Filter>
+    </ClInclude>
+    <ClInclude Include="External\tinygltf\stb_image.h">
+      <Filter>01 External Files\TinyGLTF</Filter>
+    </ClInclude>
+    <ClInclude Include="External\tinygltf\tiny_gltf.h">
+      <Filter>01 External Files\TinyGLTF</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

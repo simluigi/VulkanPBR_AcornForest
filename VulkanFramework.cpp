@@ -59,16 +59,24 @@ Current Benchmark: Vulkan ImGui Implementation
 	そしてステージングバッファーの情報をローカルメモリーに格納されている頂点バッファーに移します。
 
 =======================================================================*/
+#define _CRT_SECURE_NO_WARNINGS
+
 #include "VulkanFramework.h"
 
-//#define STB_IMAGE_IMPLEMENTATION
+//#define TINYGLTF_IMPLEMENTATION
+#define STB_IMAGE_IMPLEMENTATION
+#define STB_IMAGE_WRITE_IMPLEMENTATION
 #include <stb_image.h>
+//#include "tiny_gltf.h"
 
 #define TINYOBJLOADER_IMPLEMENTATION        // tinyobjloaderモデル読み込み
 #include <tiny_obj_loader.h>
 
-#define STB_IMAGE_IMPLEMENTATION            // remove when implementing model loader
-#include <stb_image.h>
+
+//#define STB_IMAGE_IMPLEMENTATION            // remove when implementing model loader
+//#define STB_IMAGE_WRITE_IMPLEMENTATION
+//#include <stb_image.h>
+
 
 #include "imgui.h"
 #include "imgui_impl_glfw.h"
@@ -328,7 +336,7 @@ void CVulkanFramework::initVulkan()
 	createTextureSampler();         // テクスチャーサンプラー生成
 	loadModel();                    // モデルデータを読み込み
 	createVertexBuffer();           // 頂点バッファー生成
-	createIndexBuffer();		      // インデックスバッファー生成
+	createIndexBuffer();		    // インデックスバッファー生成
 	createUniformBuffers();         // ユニフォームバッファー生成
 	createDescriptorPool();         // デスクリプターセットを格納するプールを生成
 	createDescriptorSets();         // デスクリプターセットを生成
@@ -1033,7 +1041,6 @@ void CVulkanFramework::createFramebuffers()
 }
 
 
-
 // テクスチャーマッピング用画像を用意します
 void CVulkanFramework::createTextureImage()
 {
@@ -1469,8 +1476,8 @@ void CVulkanFramework::createCommandBuffers()
 		//     ②：頂点数（頂点バッファーなしでも頂点を描画しています。）
 		//     ③：インスタンス数（インスタンスレンダリング用）
 		//     ④：インデックスバッファーの最初点からのオフセット
-		//     ④：インデックスバッファーに足すオフセット (使い道はまだ不明）
-		//     ④：インスタンスのオフセット（インスタンスレンダリング用）
+		//     ⑤：インデックスバッファーに足すオフセット (使い道はまだ不明）
+		//     ⑥：インスタンスのオフセット（インスタンスレンダリング用）
 
 		// arguments
 		// first    : commandBuffer
@@ -1536,8 +1543,10 @@ void CVulkanFramework::initImGui()
 	ImGuiStyle &style = ImGui::GetStyle();
 
 	// Color scheme
-	style.Colors[ImGuiCol_TitleBg]          = ImVec4(0.3f, 0.2f, 1.0f, 0.6f);
-	style.Colors[ImGuiCol_TitleBgActive]    = ImVec4(0.3f, 0.2f, 1.0f, 0.8f);
+	style.Colors[ImGuiCol_Text]             = ImVec4(0.0f, 1.0f, 1.0f, 1.0f);
+	style.Colors[ImGuiCol_TitleBg]          = ImVec4(0.0f, 0.1f, 0.1f, 0.2f);
+	style.Colors[ImGuiCol_TitleBgActive]    = ImVec4(0.0f, 0.1f, 0.1f, 0.2f);
+	style.Colors[ImGuiCol_WindowBg]         = ImVec4(0.0f, 0.0f, 0.0f, 0.1f);
 	style.Colors[ImGuiCol_MenuBarBg]        = ImVec4(1.0f, 0.0f, 0.0f, 0.4f);
 	style.Colors[ImGuiCol_Header]           = ImVec4(1.0f, 0.0f, 0.0f, 0.4f);
 	style.Colors[ImGuiCol_HeaderActive]     = ImVec4(1.0f, 0.0f, 0.0f, 0.4f);
@@ -1547,7 +1556,7 @@ void CVulkanFramework::initImGui()
 	style.Colors[ImGuiCol_SliderGrab]       = ImVec4(1.0f, 0.0f, 0.0f, 0.4f);
 	style.Colors[ImGuiCol_SliderGrabActive] = ImVec4(1.0f, 0.0f, 0.0f, 0.8f);
 	style.Colors[ImGuiCol_FrameBgHovered]   = ImVec4(1.0f, 1.0f, 1.0f, 0.1f);
-	style.Colors[ImGuiCol_FrameBgActive]    = ImVec4(1.0f, 1.0f, 1.0f, 0.2f);
+	style.Colors[ImGuiCol_FrameBgActive]    = ImVec4(1.0f, 1.0f, 1.0f, 0.1f);
 	style.Colors[ImGuiCol_Button]           = ImVec4(1.0f, 0.0f, 0.0f, 0.4f);
 	style.Colors[ImGuiCol_ButtonHovered]    = ImVec4(1.0f, 0.0f, 0.0f, 0.6f);
 	style.Colors[ImGuiCol_ButtonActive]     = ImVec4(1.0f, 0.0f, 0.0f, 0.8f);
@@ -1698,6 +1707,7 @@ void CVulkanFramework::drawImGuiFrame()
 	ImGui::Begin("Vulkan Custom Rendering Engine");
 	ImGui::Text("%s", m_PhysicalDeviceName.c_str());
 	ImGui::Text("%.1f FPS (%.2f ms)", ImGui::GetIO().Framerate, 1000.0f / ImGui::GetIO().Framerate);
+	ImGui::Text("Backface Culling Disabled");
 
 	ImGui::End();
 	ImGui::Render();
