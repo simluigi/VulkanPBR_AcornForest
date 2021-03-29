@@ -2,9 +2,6 @@
 *.bat
 *.cmd
 
-# Ignore Assets (for now)
-Asset/
-
 # Ignore Progress Shots
 Progress/
 Reference/
